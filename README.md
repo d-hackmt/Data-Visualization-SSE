@@ -1,5 +1,7 @@
 # Data-Visualization-SSE
 
+![image](https://github.com/user-attachments/assets/3cdec5e2-19b1-4fe6-91eb-d1494c2d6498)
+
 https://data2visuals.streamlit.app/ 
 
 Tryout this app 
