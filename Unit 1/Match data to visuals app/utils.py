@@ -1,94 +1,117 @@
-
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-import plotly.express as px
+import numpy as np
 from wordcloud import WordCloud
-import streamlit as st
-import io
 
-# Suppress warnings
-import warnings
-warnings.filterwarnings("ignore")
+# Sample datasets grouped by super type
+def load_sample_data(super_type, sub_type):
+    if super_type == "Numerical":
+        if sub_type == "Discrete":
+            return pd.DataFrame({'Items Sold': [2, 3, 5, 5, 2, 1, 3, 4, 3, 3]})
+        elif sub_type == "Continuous":
+            return pd.DataFrame({'Marks': np.random.normal(75, 10, 100)})
 
-# Sample datasets
-def get_sample_datasets():
-    datasets = {
-        "Numerical - Continuous": pd.DataFrame({
-            "Height(cm)": [150, 160, 165, 170, 175, 180, 185, 190, 195, 200]
-        }),
-        "Numerical - Discrete": pd.DataFrame({
-            "Books Owned": [1, 2, 2, 3, 3, 3, 4, 5, 5, 5]
-        }),
-        "Categorical - Nominal": pd.DataFrame({
-            "Gender": ["Male", "Female", "Female", "Male", "Other", "Female"]
-        }),
-        "Categorical - Ordinal": pd.DataFrame({
-            "Satisfaction": ["Low", "Medium", "High", "High", "Low", "Medium"]
-        }),
-        "Time-Series": pd.DataFrame({
-            "Date": pd.date_range(start="2023-01-01", periods=10, freq="M"),
-            "Sales": [120, 150, 160, 180, 200, 190, 210, 230, 250, 240]
-        }),
-        "Text (Unstructured)": pd.DataFrame({
-            "Tweets": [
-                "I love data visualization!",
-                "Python is great for data science.",
-                "Visualization makes data come alive.",
-                "Streamlit apps are super useful.",
-                "Machine learning is amazing.",
-                "Data is the new oil.",
-                "AI is transforming the world.",
-                "This plot looks fantastic!",
-                "Bar charts are easy to read.",
-                "Let's build something cool."
-            ]
-        })
-    }
-    return datasets
+    elif super_type == "Categorical":
+        if sub_type == "Nominal":
+            return pd.DataFrame({'Gender': ['Male', 'Female', 'Other'] * 10})
+        elif sub_type == "Ordinal":
+            return pd.DataFrame({'Satisfaction': ['Low', 'Medium', 'High', 'Medium', 'Low'] * 10})
 
-# Chart rendering functions
-def plot_visualization(data_type, df):
+    elif super_type == "Time-Series":
+        dates = pd.date_range(start='2024-01-01', periods=30)
+        return pd.DataFrame({'Date': dates, 'Sales': np.random.randint(50, 150, size=30)})
+
+    elif super_type == "Text":
+        tweets = [
+            "AI will change the world!", "Data visualization makes insights easier to see.",
+            "Python is amazing for data science.", "Streamlit apps are interactive and cool.",
+            "Word clouds help visualize text beautifully.", "Education and data go hand in hand.",
+            "Transforming ideas into code with AI.", "ChatGPT helps me understand things faster!"
+        ]
+        return pd.DataFrame({'Tweet': tweets})
+
+    else:
+        return pd.DataFrame()
+
+# Match rules for correct visualizations
+chart_guidelines = {
+    "Numerical-Discrete": ["Bar Chart", "Pie Chart"],
+    "Numerical-Continuous": ["Histogram", "Line Chart", "Box Plot"],
+    "Categorical-Nominal": ["Bar Chart", "Pie Chart"],
+    "Categorical-Ordinal": ["Bar Chart", "Dot Plot"],
+    "Time-Series-Continuous": ["Line Chart", "Area Chart"],
+    "Text-Text": ["Word Cloud"]
+}
+
+# Central plotting function
+def plot_chart(df, super_type, sub_type, chart_type):
+    key = f"{super_type}-{sub_type}"
+    valid_charts = chart_guidelines.get(key, [])
+
     fig, ax = plt.subplots()
-    st.write("### Recommended Chart for:", data_type)
 
-    if data_type == "Numerical - Continuous":
-        sns.histplot(df.iloc[:, 0], kde=True, ax=ax)
-        st.pyplot(fig)
+    try:
+        # Handle different combinations
+        if super_type == "Numerical" and sub_type == "Discrete":
+            data = df['Items Sold']
+            if chart_type == "Bar Chart":
+                data.value_counts().plot(kind='bar', ax=ax)
+            elif chart_type == "Pie Chart":
+                data.value_counts().plot(kind='pie', autopct='%1.1f%%', ax=ax)
+            else:
+                raise ValueError("Invalid chart for this data type.")
 
-    elif data_type == "Numerical - Discrete":
-        sns.countplot(x=df.iloc[:, 0], ax=ax)
-        st.pyplot(fig)
+        elif super_type == "Numerical" and sub_type == "Continuous":
+            data = df['Marks']
+            if chart_type == "Histogram":
+                sns.histplot(data, kde=True, ax=ax)
+            elif chart_type == "Line Chart":
+                ax.plot(data)
+            elif chart_type == "Box Plot":
+                sns.boxplot(x=data, ax=ax)
+            else:
+                raise ValueError("Invalid chart for this data type.")
 
-    elif data_type == "Categorical - Nominal":
-        sns.countplot(x=df.iloc[:, 0], ax=ax)
-        st.pyplot(fig)
+        elif super_type == "Categorical" and sub_type == "Nominal":
+            data = df['Gender']
+            if chart_type == "Bar Chart":
+                data.value_counts().plot(kind='bar', ax=ax)
+            elif chart_type == "Pie Chart":
+                data.value_counts().plot(kind='pie', autopct='%1.1f%%', ax=ax)
+            else:
+                raise ValueError("Invalid chart for this data type.")
 
-    elif data_type == "Categorical - Ordinal":
-        order = ["Low", "Medium", "High"]
-        sns.countplot(x=df.iloc[:, 0], order=order, ax=ax)
-        st.pyplot(fig)
+        elif super_type == "Categorical" and sub_type == "Ordinal":
+            order = ['Low', 'Medium', 'High']
+            df['Satisfaction'] = pd.Categorical(df['Satisfaction'], categories=order, ordered=True)
+            if chart_type == "Bar Chart":
+                df['Satisfaction'].value_counts().loc[order].plot(kind='bar', ax=ax)
+            elif chart_type == "Dot Plot":
+                sns.stripplot(x='Satisfaction', data=df, order=order, ax=ax)
+            else:
+                raise ValueError("Invalid chart for this data type.")
 
-    elif data_type == "Time-Series":
-        fig = px.line(df, x="Date", y="Sales", title="Sales Over Time")
-        st.plotly_chart(fig)
+        elif super_type == "Time-Series":
+            if chart_type == "Line Chart":
+                ax.plot(df['Date'], df['Sales'], marker='o')
+            elif chart_type == "Area Chart":
+                ax.fill_between(df['Date'], df['Sales'], alpha=0.3)
+            else:
+                raise ValueError("Invalid chart for this data type.")
+            ax.set_xlabel("Date")
+            ax.set_ylabel("Sales")
 
-    elif data_type == "Text (Unstructured)":
-        text = " ".join(df["Tweets"])
-        wordcloud = WordCloud(width=800, height=400, background_color="white").generate(text)
-        plt.figure(figsize=(10, 5))
-        plt.imshow(wordcloud, interpolation="bilinear")
-        plt.axis("off")
-        st.pyplot(plt)
+        elif super_type == "Text":
+            if chart_type == "Word Cloud":
+                text = " ".join(df['Tweet'].values)
+                wc = WordCloud(width=800, height=400, background_color='white').generate(text)
+                plt.imshow(wc, interpolation='bilinear')
+                plt.axis("off")
+            else:
+                raise ValueError("Invalid chart for text data.")
 
-# Instructional text
-def get_instruction_text(data_type):
-    hints = {
-        "Numerical - Continuous": "✅ Use Histogram or KDE plot to visualize distribution.",
-        "Numerical - Discrete": "✅ Use Bar Chart to show counts of each discrete value.",
-        "Categorical - Nominal": "✅ Use Bar Chart or Pie Chart to show category frequency.",
-        "Categorical - Ordinal": "✅ Use Ordered Bar Chart to show rankings.",
-        "Time-Series": "✅ Use Line Chart to track values over time.",
-        "Text (Unstructured)": "✅ Use Word Cloud to visualize frequent words."
-    }
-    return hints.get(data_type, "")
+        return fig, chart_type in valid_charts
+
+    except Exception as e:
+        raise ValueError(f"❌ Cannot plot '{chart_type}' for {key} data. {str(e)}")
